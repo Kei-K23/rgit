@@ -1,6 +1,6 @@
 use std::{
-    fs::{self},
-    io,
+    fs::{self, File},
+    io::{self, Write},
     path::Path,
 };
 
@@ -9,14 +9,19 @@ fn git_init() -> io::Result<()> {
     // Check .git file already exist
     let git_file_dir = Path::new(".rgit");
     if git_file_dir.exists() {
-        println!("Git repository already initialized.");
-        Ok(())
+        println!("Rgit repository already initialized.");
+        return Ok(());
     }
 
-    // Creat
+    // Create necessary file and folder the track by rgit
     fs::create_dir(".rgit")?;
     fs::create_dir(".rgit/objects")?;
     fs::create_dir_all(".rgit/refs/heads")?;
+
+    let mut head_file = File::create(".rgit/HEAD")?;
+    head_file.write_all(b"ref: refs/heads/master")?;
+    println!("Initialized empty rgit repository.");
+    Ok(())
 }
 
 fn main() {
