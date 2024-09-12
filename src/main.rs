@@ -5,6 +5,8 @@ use std::{
     path::Path,
 };
 
+use sha1::{Digest, Sha1};
+
 // Git init command implementation
 fn git_init() -> io::Result<()> {
     // Check .git file already exist
@@ -30,7 +32,35 @@ fn git_add(file_path: &str) -> io::Result<()> {
     let mut file = File::open(file_path)?;
     let mut contents: Vec<u8> = vec![];
     // Read content inside file and add them to contents Vec
-    file.read_to_end(&mut contents);
+    file.read_to_end(&mut contents)?;
+
+    // Get hash key from content
+    let mut hasher = Sha1::new();
+    hasher.update(&contents);
+    // Get hash value
+    let hash = hasher.finalize();
+    // Format hash value to hash string
+    let hash_str = format!("{:x}", hash);
+
+    // Create blob folder under .rgit/objects
+    // Create new folder with the name of first two character of hash string value and create file under that folder with the rest of the name of hash value
+    let blob_dir_name = &hash_str[0..2];
+    let blob_file_name = &hash_str[2..];
+    // Create folder
+    fs::create_dir_all(format!(".rgit/objects/{}", blob_dir_name))?;
+    let mut blob_file = File::create(format!(
+        ".rgit/objects/{}/{}",
+        blob_dir_name, blob_file_name
+    ))?;
+    // Write contents of bytes to blob file
+    blob_file.write_all(&contents)?;
+
+    // Instead of completely writing content, this will only append content to index file
+    let mut index_file = File::options().append(true).open(".rgit/index")?;
+    writeln!(index_file, "{} {}", hash_str, file_path)?;
+
+    println!("File {} added to staging area.", file_path);
+    Ok(())
 }
 
 fn main() {
