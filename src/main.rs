@@ -1,6 +1,7 @@
+use core::str;
 use std::{
     fs::{self, File},
-    io::{self, Write},
+    io::{self, Read, Write},
     path::Path,
 };
 
@@ -22,6 +23,14 @@ fn git_init() -> io::Result<()> {
     head_file.write_all(b"ref: refs/heads/master")?;
     println!("Initialized empty rgit repository.");
     Ok(())
+}
+
+fn git_add(file_path: &str) -> io::Result<()> {
+    // Open the git add file (e.g git add main.rs)
+    let mut file = File::open(file_path)?;
+    let mut contents: Vec<u8> = vec![];
+    // Read content inside file and add them to contents Vec
+    file.read_to_end(&mut contents);
 }
 
 fn main() {
