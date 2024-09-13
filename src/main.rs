@@ -1,10 +1,10 @@
 use clap::{Arg, Command};
 use sha1::{Digest, Sha1};
 use std::{
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     io::{self, BufRead, BufReader, Read, Write},
     path::Path,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 // Git init command implementation
@@ -139,6 +139,61 @@ fn commit(message: &str) -> io::Result<()> {
     head_file.write_all(commit_hash_str.as_bytes())?;
 
     println!("Committed with message {}", message);
+    Ok(())
+}
+
+// Configuration command
+fn set_config(key: &str, value: &str) -> io::Result<()> {
+    let config_file_path = ".rgit/config"; // config file path
+
+    // Read config file if it exist and get value and store them in lines String Vector
+    let mut lines: Vec<String> = vec![];
+    if let Ok(config_file) = File::open(config_file_path) {
+        let config_file_rdr = BufReader::new(config_file);
+        for line in config_file_rdr.lines() {
+            lines.push(line?);
+        }
+    }
+
+    // Find or add '[user]' section and if already have user section then update the value according to key
+    let mut is_user_section = false;
+    let mut updated = false;
+
+    // Loop through lines of config file
+    for line in lines.iter_mut() {
+        if line.trim() == "[user]" {
+            is_user_section = true;
+        } else if is_user_section && line.trim().starts_with(key) {
+            *line = format!("    {} = {}", key, value); // Update the value when match with key
+            updated = true;
+            break;
+        } else if line.trim().is_empty() {
+            is_user_section = false;
+        }
+    }
+
+    // Handle case for new config file or config that does not have '[user]' section
+    if !updated {
+        if !is_user_section {
+            lines.push("[user]".to_string());
+        }
+        // Add new config for user
+        lines.push(format!("    {} = {}", key, value));
+    }
+
+    // Write new update config file back to .rgit/config file
+    let mut file = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(config_file_path)?;
+
+    for line in lines {
+        writeln!(file, "{}", line)?;
+    }
+
+    println!("Configuration updated: {}={}", key, value);
+
     Ok(())
 }
 
