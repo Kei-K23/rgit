@@ -197,6 +197,36 @@ fn set_config(key: &str, value: &str) -> io::Result<()> {
     Ok(())
 }
 
+fn get_config(key: &str) -> io::Result<Option<String>> {
+    let config_file_path = ".rgit/config";
+
+    if let Ok(config_file) = File::open(config_file_path) {
+        // Create buffer to read line by line to config file content
+        let config_file_rdr = BufReader::new(config_file);
+        let mut in_user_section = true; // Indicator for '[user]' section
+
+        for line in config_file_rdr.lines() {
+            let line = line?;
+            if line.trim() == "[user]" {
+                in_user_section = true // By defining in_user_section indicator to true make sure below content will be associated with '[user]' section
+            } else if in_user_section {
+                // Split string by " = "
+                if let Some((config_key, config_value)) = line.trim().split_once(" = ") {
+                    // Match with user provided key
+                    if config_key == key {
+                        return Ok(Some(config_value.to_string()));
+                    }
+                }
+            } else if line.trim().is_empty() {
+                in_user_section = false;
+            }
+        }
+    }
+
+    println!("No configuration found for '{}'", key);
+    Ok(None)
+}
+
 fn main() {
     // CLI interface
     let matches = Command::new("rgit")
