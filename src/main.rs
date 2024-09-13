@@ -227,27 +227,77 @@ fn get_config(key: &str) -> io::Result<Option<String>> {
     Ok(None)
 }
 
+// Handle config commands (set or get)
+fn handle_config_command(action: &str, key: &str, value: Option<&str>) -> io::Result<()> {
+    match action {
+        "set" => {
+            if let Some(val) = value {
+                set_config(key, val)?;
+                println!("Configuration set: {} = {}", key, val);
+            } else {
+                println!("Value required for 'set' command.");
+            }
+        }
+        "get" => {
+            if let Some(val) = get_config(key)? {
+                println!("{} = {}", key, val);
+            } else {
+                println!("No configuration found for '{}'", key);
+            }
+        }
+        _ => {
+            println!("Invalid action. Use 'set' or 'get'.");
+        }
+    }
+
+    Ok(())
+}
+
 fn main() {
     // CLI interface
-    let matches = Command::new("rgit")
-        .version("0.1.0")
-        .about("Rgit is a Git implementation in Rust")
-        .author("Kei-K23")
-        .subcommand(
-            Command::new("init")
-                .about("Create an empty Git repository or reinitialize an existing one"),
-        )
-        .subcommand(
-            Command::new("add")
-                .about("Add file contents to the index")
-                .arg(Arg::new("file").required(true).help("The file to add")),
-        )
-        .subcommand(
-            Command::new("commit")
-                .about("Record changes to the repository")
-                .arg(Arg::new("message").required(true).help("Commit message")),
-        )
-        .get_matches();
+    let matches =
+        Command::new("rgit")
+            .version("0.1.0")
+            .about("Rgit is a Git implementation in Rust")
+            .author("Kei-K23")
+            .subcommand(
+                Command::new("init")
+                    .about("Create an empty Git repository or reinitialize an existing one"),
+            )
+            .subcommand(
+                Command::new("add")
+                    .about("Add file contents to the index")
+                    .arg(Arg::new("file").required(true).help("The file to add")),
+            )
+            .subcommand(
+                Command::new("commit")
+                    .about("Record changes to the repository")
+                    .arg(Arg::new("message").required(true).help("Commit message")),
+            )
+            .subcommand(
+                Command::new("config")
+                    .about("Configuration for repository")
+                    .subcommand(
+                        Command::new("set")
+                            .about("Set configuration for the repository")
+                            .arg(
+                                Arg::new("key")
+                                    .required(true)
+                                    .help("The configuration key (e.g., 'name' or 'email')"),
+                            )
+                            .arg(Arg::new("value").required(true).help(
+                                "The value to set (e.g., 'John Doe' or 'johndoe@example.com')",
+                            )),
+                    )
+                    .subcommand(
+                        Command::new("get")
+                            .about("Get configuration of the repository")
+                            .arg(Arg::new("key").required(true).help(
+                                "The configuration key to retrieve (e.g., 'name' or 'email')",
+                            )),
+                    ),
+            )
+            .get_matches();
 
     // Handle the init command
     if let Some(_) = matches.subcommand_matches("init") {
@@ -266,10 +316,28 @@ fn main() {
     }
 
     // Handle the commit command
-    if let Some(add_matches) = matches.subcommand_matches("commit") {
-        if let Some(message) = add_matches.get_one::<String>("message") {
+    if let Some(commit_matches) = matches.subcommand_matches("commit") {
+        if let Some(message) = commit_matches.get_one::<String>("message") {
             if let Err(e) = commit(&message) {
                 eprintln!("Error committing file to the repository: {}", e);
+            }
+        }
+    }
+
+    // Handle the config set and get command
+    if let Some(config_matches) = matches.subcommand_matches("config") {
+        if let Some(set_matches) = config_matches.subcommand_matches("set") {
+            let key = set_matches.get_one::<String>("key").unwrap();
+            let value = set_matches.get_one::<String>("value").unwrap();
+            if let Err(err) = handle_config_command("set", key, Some(value)) {
+                eprintln!("Error setting configuration: {}", err);
+            }
+        }
+
+        if let Some(get_matches) = config_matches.subcommand_matches("get") {
+            let key = get_matches.get_one::<String>("key").unwrap();
+            if let Err(err) = handle_config_command("get", key, None) {
+                eprintln!("Error getting configuration: {}", err);
             }
         }
     }
