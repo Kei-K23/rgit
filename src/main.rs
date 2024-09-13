@@ -253,6 +253,46 @@ fn handle_config_command(action: &str, key: &str, value: Option<&str>) -> io::Re
     Ok(())
 }
 
+fn status() -> io::Result<()> {
+    let index_file_path = ".rgit/index";
+    let mut staged_files: Vec<String> = vec![];
+
+    let index_file = File::open(index_file_path)?;
+    let index_file_rdr = BufReader::new(index_file);
+
+    // Collect all staged file in the index file
+    for line in index_file_rdr.lines() {
+        let line = line?;
+        let mut parts = line.split_whitespace();
+        if let Some(file_path) = parts.nth(1) {
+            staged_files.push(file_path.to_string());
+        }
+    }
+
+    // Check current working dir status
+    let mut untracked_files = vec![];
+    // let modified_files = vec![];
+
+    for entry in fs::read_dir(".")? {
+        let entry = entry?;
+        let path = entry.path();
+
+        // Track for untracked file (meaning file that are no reach to staging)
+        if path.is_file() && !staged_files.contains(&path.to_string_lossy().to_string()) {
+            untracked_files.push(path.to_string_lossy().to_string());
+        }
+
+        // Handle for file content change (meaning file that are reached but modified the content)
+    }
+
+    println!("Untracked files:");
+    for file in &untracked_files {
+        println!("  {}", file);
+    }
+
+    Ok(())
+}
+
 fn main() {
     // CLI interface
     let matches =
@@ -269,6 +309,7 @@ fn main() {
                     .about("Add file contents to the index")
                     .arg(Arg::new("file").required(true).help("The file to add")),
             )
+            .subcommand(Command::new("status").about("Show the working tree status"))
             .subcommand(
                 Command::new("commit")
                     .about("Record changes to the repository")
@@ -303,6 +344,13 @@ fn main() {
     if let Some(_) = matches.subcommand_matches("init") {
         if let Err(e) = init() {
             eprintln!("Error initializing repository: {}", e);
+        }
+    }
+
+    // Handle the status command
+    if let Some(_) = matches.subcommand_matches("status") {
+        if let Err(e) = status() {
+            eprintln!("Error when retrieve the status of repository: {}", e);
         }
     }
 
