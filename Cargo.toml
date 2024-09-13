@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono = "0.4.38"
 clap = "4.5.17"
 sha1 = "0.10.6"

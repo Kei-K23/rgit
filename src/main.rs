@@ -4,6 +4,7 @@ use std::{
     fs::{self, File},
     io::{self, BufRead, BufReader, Read, Write},
     path::Path,
+    time::{Duration, SystemTime},
 };
 
 // Git init command implementation
@@ -107,6 +108,37 @@ fn commit(message: &str) -> io::Result<()> {
     ))?;
     tree_obj.write_all(tree_content.as_bytes())?;
 
+    // Create commit object
+    let author = "Kei-K23 keiksl2301@gmail.com";
+    let timestamp = SystemTime::now();
+    // Commit object in string format
+    let commit_content = format!(
+        "tree {}\n\
+        author {} {:?}\n\
+        committer {} {:?}\n\n\
+        {}\n",
+        tree_hash_str, author, timestamp, author, timestamp, message
+    );
+
+    let mut commit_hasher = Sha1::new();
+    commit_hasher.update(commit_content.as_bytes());
+    let commit_hash_str = format!("{:x}", commit_hasher.finalize());
+
+    // Write commit hash tree to .rgit/objects
+    let commit_dir_name = &commit_hash_str[0..2];
+    let commit_file_name = &commit_hash_str[2..];
+    fs::create_dir_all(format!(".rgit/objects/{}", commit_dir_name))?;
+    let mut commit_obj = File::create(format!(
+        ".rgit/objects/{}/{}",
+        commit_dir_name, commit_file_name
+    ))?;
+    commit_obj.write_all(commit_content.as_bytes())?;
+
+    // Update head file in refs heads file
+    let mut head_file = File::create(".rgit/refs/heads/master")?;
+    head_file.write_all(commit_hash_str.as_bytes())?;
+
+    println!("Committed with message {}", message);
     Ok(())
 }
 
@@ -125,6 +157,11 @@ fn main() {
                 .about("Add file contents to the index")
                 .arg(Arg::new("file").required(true).help("The file to add")),
         )
+        .subcommand(
+            Command::new("commit")
+                .about("Record changes to the repository")
+                .arg(Arg::new("message").required(true).help("Commit message")),
+        )
         .get_matches();
 
     // Handle the init command
@@ -139,6 +176,15 @@ fn main() {
         if let Some(file_path) = add_matches.get_one::<String>("file") {
             if let Err(e) = add(file_path) {
                 eprintln!("Error adding file to the staging area: {}", e);
+            }
+        }
+    }
+
+    // Handle the commit command
+    if let Some(add_matches) = matches.subcommand_matches("commit") {
+        if let Some(message) = add_matches.get_one::<String>("message") {
+            if let Err(e) = commit(&message) {
+                eprintln!("Error committing file to the repository: {}", e);
             }
         }
     }
