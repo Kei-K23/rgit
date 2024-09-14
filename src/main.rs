@@ -547,6 +547,11 @@ fn main() {
                     .about("List, create, or delete branches")
                     .arg(Arg::new("name").required(false).help("Create new branch")),
             )
+            .subcommand(
+                Command::new("tag")
+                    .about("Create, list, delete tags")
+                    .arg(Arg::new("name").required(false).help("Create new tag")),
+            )
             .subcommand(Command::new("status").about("Show the working tree status"))
             .subcommand(
                 Command::new("diff")
@@ -633,6 +638,21 @@ fn main() {
 
         if let Err(e) = branch(new_branch_name) {
             eprintln!("Error when calling branch command: {}", e);
+        }
+    }
+
+    // Handle the tag command
+    if let Some(tag_matches) = matches.subcommand_matches("tag") {
+        let new_tag_name = tag_matches.get_one::<String>("name");
+
+        if let Some(tag_name) = new_tag_name {
+            if let Err(e) = tag(tag_name) {
+                eprintln!("Error when creating new tag: {}", e);
+            }
+        } else {
+            if let Err(e) = list_tags() {
+                eprintln!("Error when retrieve list of tags: {}", e);
+            }
         }
     }
 
