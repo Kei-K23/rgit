@@ -341,6 +341,39 @@ fn status() -> io::Result<()> {
     Ok(())
 }
 
+fn branch(new_branch: Option<&str>) -> io::Result<()> {
+    // Check heads dir exist (to store branches)
+    let heads_dir = Path::new(".rgit/refs/heads");
+    if !heads_dir.exists() {
+        println!("No branches available");
+        return Ok(());
+    }
+
+    if let Some(new_branch) = new_branch {
+        // Create new branch if new_branch have value
+        let master_file = heads_dir.join("master");
+        let new_branch_file = heads_dir.join(new_branch);
+
+        if new_branch_file.exists() {
+            println!("Branch {new_branch} already exist");
+            return Ok(());
+        } else {
+            fs::copy(master_file, new_branch_file)?;
+            println!("Branch {} created.", new_branch);
+        }
+    } else {
+        // Show branches that have in heads dir
+        println!("Branches:");
+        for entry in fs::read_dir(heads_dir)? {
+            let entry = entry?;
+            let branch_name = entry.file_name().into_string().unwrap();
+            println!("  {branch_name}");
+        }
+    }
+
+    Ok(())
+}
+
 fn main() {
     // CLI interface
     let matches =
