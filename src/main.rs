@@ -499,6 +499,23 @@ fn tag(tag_name: &str) -> io::Result<()> {
     Ok(())
 }
 
+fn list_tags() -> io::Result<()> {
+    let tag_dir_path = Path::new(".rgit/refs/tags");
+
+    if tag_dir_path.exists() {
+        for entry in fs::read_dir(tag_dir_path)? {
+            let entry = entry?;
+            let tag_name = entry.file_name().into_string().unwrap();
+
+            println!("{}", tag_name);
+        }
+    } else {
+        eprintln!("No tags found");
+    }
+
+    Ok(())
+}
+
 fn main() {
     // CLI interface
     let matches =
