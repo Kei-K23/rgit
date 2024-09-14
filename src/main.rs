@@ -487,6 +487,18 @@ fn diff() -> io::Result<()> {
     Ok(())
 }
 
+fn tag(tag_name: &str) -> io::Result<()> {
+    // TODO: Change heard code head_file value (currently master) to dynamic according to active branch
+    let head_content = fs::read_to_string(".rgit/refs/heads/master")?;
+    let tag_file_path = format!(".rgit/refs/tags/{}", tag_name);
+
+    let mut tag_file = File::create(tag_file_path)?;
+    tag_file.write_all(head_content.as_bytes())?;
+
+    println!("Tag '{}' created", tag_name);
+    Ok(())
+}
+
 fn main() {
     // CLI interface
     let matches =
