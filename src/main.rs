@@ -425,6 +425,42 @@ fn log() -> io::Result<()> {
     Ok(())
 }
 
+fn checkout(branch_or_commit: &str) -> io::Result<()> {
+    let head_path = ".rgit/HEAD";
+
+    let branch_path = format!(".rgit/refs/heads/{}", branch_or_commit);
+
+    // Branch exist, then perform branch switching
+    if Path::new(&branch_path).exists() {
+        let mut head_file = File::create(head_path)?;
+        head_file.write_all(format!("ref: refs/heads/{}", branch_or_commit).as_bytes())?;
+
+        println!("Switched to branch {}", branch_or_commit);
+    } else {
+        // Commit check out here
+        let commit_obj_path = format!(
+            ".rgit/objects/{}/{}",
+            &branch_or_commit[0..2],
+            &branch_or_commit[2..]
+        );
+
+        if Path::new(&commit_obj_path).exists() {
+            // Commit obj exist
+            let mut head_file = File::create(head_path)?;
+            // Update HEAD file content to user passed commit
+            head_file.write_all(branch_or_commit.as_bytes())?;
+            println!("Checked out commit {}", branch_or_commit);
+        } else {
+            eprintln!("Error: branch or commit not found");
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "Error: branch or commit not found",
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn main() {
     // CLI interface
     let matches =
@@ -441,6 +477,15 @@ fn main() {
                 Command::new("add")
                     .about("Add file contents to the index")
                     .arg(Arg::new("file").required(true).help("The file to add")),
+            )
+            .subcommand(
+                Command::new("checkout")
+                    .about("Checkout to commit and switch branch")
+                    .arg(
+                        Arg::new("name")
+                            .required(true)
+                            .help("Branch name or commit key"),
+                    ),
             )
             .subcommand(
                 Command::new("branch")
@@ -503,6 +548,15 @@ fn main() {
         if let Some(file_path) = add_matches.get_one::<String>("file") {
             if let Err(e) = add(file_path) {
                 eprintln!("Error adding file to the staging area: {}", e);
+            }
+        }
+    }
+
+    // Handle the checkout command
+    if let Some(checkout_matches) = matches.subcommand_matches("checkout") {
+        if let Some(name) = checkout_matches.get_one::<String>("name") {
+            if let Err(e) = checkout(name) {
+                eprintln!("{}", e);
             }
         }
     }
