@@ -461,6 +461,32 @@ fn checkout(branch_or_commit: &str) -> io::Result<()> {
     Ok(())
 }
 
+// TODO :: Need to check with latest commit for specific file
+fn diff() -> io::Result<()> {
+    let index_file_path = Path::new(".rgit/index");
+    let index_file = File::open(index_file_path)?;
+    let index_file_rdr = BufReader::new(index_file);
+
+    // Loop through the contents of index file
+    for line in index_file_rdr.lines() {
+        let line = line?;
+        let mut parts = line.split_whitespace();
+        // Get hash value and file path that store in the index file
+        let (hash_value, file_path) = (parts.next().unwrap(), parts.next().unwrap());
+
+        let current_file_path = Path::new(file_path);
+        // Get current file hash value
+        if let Ok(current_hash_value) = compute_file_hash(current_file_path) {
+            // If current file hash value string is not equal with hash value that store inside index file, then file change detected
+            if current_hash_value != hash_value {
+                println!("File '{}' has changed", file_path);
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn main() {
     // CLI interface
     let matches =
@@ -493,6 +519,10 @@ fn main() {
                     .arg(Arg::new("name").required(false).help("Create new branch")),
             )
             .subcommand(Command::new("status").about("Show the working tree status"))
+            .subcommand(
+                Command::new("diff")
+                    .about("Show changes between commits, commit and working tree, etc"),
+            )
             .subcommand(
                 Command::new("commit")
                     .about("Record changes to the repository")
@@ -540,6 +570,13 @@ fn main() {
     if let Some(_) = matches.subcommand_matches("status") {
         if let Err(e) = status() {
             eprintln!("Error when retrieve the status of repository: {}", e);
+        }
+    }
+
+    // Handle the diff command
+    if let Some(_) = matches.subcommand_matches("diff") {
+        if let Err(e) = diff() {
+            eprintln!("Error when retrieve the changes of working tree: {}", e);
         }
     }
 
