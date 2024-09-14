@@ -253,41 +253,89 @@ fn handle_config_command(action: &str, key: &str, value: Option<&str>) -> io::Re
     Ok(())
 }
 
+// Helper function to compute file hash (SHA-1)
+fn compute_file_hash(file_path: &Path) -> io::Result<String> {
+    let mut file = File::open(file_path)?;
+    let mut hasher = Sha1::new();
+    let mut buffer = vec![0; 1024];
+
+    loop {
+        let bytes_read = file.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
 fn status() -> io::Result<()> {
     let index_file_path = ".rgit/index";
-    let mut staged_files: Vec<String> = vec![];
+    let mut staged_files: Vec<(String, String)> = vec![]; // (file_path, file_hash)
 
     let index_file = File::open(index_file_path)?;
     let index_file_rdr = BufReader::new(index_file);
 
-    // Collect all staged file in the index file
+    // Collect all staged files and their hashes from the index file
     for line in index_file_rdr.lines() {
         let line = line?;
         let mut parts = line.split_whitespace();
-        if let Some(file_path) = parts.nth(1) {
-            staged_files.push(file_path.to_string());
+        let hash = parts.next().unwrap_or("");
+        if let Some(file_path) = parts.next() {
+            staged_files.push((file_path.to_string(), hash.to_string()));
         }
     }
 
-    // Check current working dir status
     let mut untracked_files = vec![];
-    // let modified_files = vec![];
+    let mut modified_files = vec![];
 
+    // Check the current working directory for status
     for entry in fs::read_dir(".")? {
         let entry = entry?;
         let path = entry.path();
 
-        // Track for untracked file (meaning file that are no reach to staging)
-        if path.is_file() && !staged_files.contains(&path.to_string_lossy().to_string()) {
-            untracked_files.push(path.to_string_lossy().to_string());
+        if path.is_file() {
+            // Remove "./" when comparing file path
+            let path_str = path.to_string_lossy().to_string().replace("./", "");
+            // Check if the file is untracked
+            if !staged_files
+                .iter()
+                .any(|(staged_file, _)| staged_file == &path_str)
+            {
+                untracked_files.push(path_str.clone());
+            } else {
+                // Check if the file has been modified (compare current hash with staged hash)
+                if let Ok(current_hash) = compute_file_hash(&path) {
+                    // TODO :: Need to check with latest commit for specific file
+                    if let Some((_, staged_hash)) = staged_files
+                        .iter()
+                        .find(|(staged_file, _)| staged_file == &path_str)
+                    {
+                        println!("current hash {current_hash} , {staged_hash}");
+                        if &current_hash != staged_hash {
+                            modified_files.push(path_str.clone());
+                        }
+                    }
+                }
+            }
         }
-
-        // Handle for file content change (meaning file that are reached but modified the content)
     }
 
-    println!("Untracked files:");
-    for file in &untracked_files {
-        println!("  {}", file);
+    // Display untracked files
+    if !untracked_files.is_empty() {
+        println!("Untracked files:");
+        for file in &untracked_files {
+            println!("  {}", file);
+        }
+    }
+
+    // Display modified files
+    if !modified_files.is_empty() {
+        println!("\nModified files:");
+        for file in &modified_files {
+            println!("  {}", file);
+        }
     }
 
     Ok(())
