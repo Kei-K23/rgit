@@ -61,6 +61,7 @@ fn add(file_path: &str) -> io::Result<()> {
     Ok(())
 }
 
+// TODO:: Add parent commit hash value to track parent commit
 fn commit(message: &str) -> io::Result<()> {
     // Read index file to get hash values and files names that reach to staging area
     let index_path = Path::new(".rgit/index");
@@ -341,6 +342,7 @@ fn status() -> io::Result<()> {
     Ok(())
 }
 
+// TODO:: Handle branch delete command
 fn branch(new_branch: Option<&String>) -> io::Result<()> {
     // Check heads dir exist (to store branches)
     let heads_dir = Path::new(".rgit/refs/heads");
@@ -374,6 +376,55 @@ fn branch(new_branch: Option<&String>) -> io::Result<()> {
     Ok(())
 }
 
+fn log() -> io::Result<()> {
+    // TODO :: Need to check for current branch like (main or dev)
+    // Default to master branch
+    let head_path = Path::new(".rgit/refs/heads/master");
+
+    if !head_path.exists() {
+        println!("No commits found");
+        return Ok(());
+    }
+
+    // Get current commit hash value
+    let mut current_commit = fs::read_to_string(head_path)?.trim().to_string();
+
+    while !current_commit.is_empty() {
+        let mut parent_commit: Option<String> = None;
+        let commit_path = format!(
+            ".rgit/objects/{}/{}",
+            &current_commit[0..2],
+            &current_commit[2..]
+        );
+        let commit_contents = fs::read_to_string(commit_path)?;
+
+        println!("Commit : {}", current_commit);
+
+        for line in commit_contents.lines() {
+            if line.starts_with("author") || line.starts_with("committer") || line.is_empty() {
+                println!("{}", line);
+            } else if line.starts_with("parent") {
+                parent_commit = line.split_whitespace().nth(1).map(String::from);
+            } else if line.starts_with("tree") {
+                // Skip the commit tree (commit tree indicate the files that contain blobs)
+            } else {
+                println!("{}", line);
+            }
+        }
+        println!();
+
+        // If no parent commit exists, end the traversal (first commit case)
+        if parent_commit.is_none() {
+            break;
+        }
+
+        // Move to the parent commit for the next iteration
+        current_commit = parent_commit.unwrap();
+    }
+
+    Ok(())
+}
+
 fn main() {
     // CLI interface
     let matches =
@@ -381,8 +432,9 @@ fn main() {
             .version("0.1.0")
             .about("Rgit is a Git implementation in Rust")
             .author("Kei-K23")
+            .subcommand(Command::new("init").about("Show commit logs"))
             .subcommand(
-                Command::new("init")
+                Command::new("log")
                     .about("Create an empty Git repository or reinitialize an existing one"),
             )
             .subcommand(
@@ -430,6 +482,12 @@ fn main() {
     if let Some(_) = matches.subcommand_matches("init") {
         if let Err(e) = init() {
             eprintln!("Error initializing repository: {}", e);
+        }
+    }
+    // Handle the log command
+    if let Some(_) = matches.subcommand_matches("log") {
+        if let Err(e) = log() {
+            eprintln!("Error when retrieve logs: {}", e);
         }
     }
 
