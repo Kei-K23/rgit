@@ -341,7 +341,7 @@ fn status() -> io::Result<()> {
     Ok(())
 }
 
-fn branch(new_branch: Option<&str>) -> io::Result<()> {
+fn branch(new_branch: Option<&String>) -> io::Result<()> {
     // Check heads dir exist (to store branches)
     let heads_dir = Path::new(".rgit/refs/heads");
     if !heads_dir.exists() {
@@ -389,6 +389,11 @@ fn main() {
                 Command::new("add")
                     .about("Add file contents to the index")
                     .arg(Arg::new("file").required(true).help("The file to add")),
+            )
+            .subcommand(
+                Command::new("branch")
+                    .about("List, create, or delete branches")
+                    .arg(Arg::new("name").required(false).help("Create new branch")),
             )
             .subcommand(Command::new("status").about("Show the working tree status"))
             .subcommand(
@@ -441,6 +446,15 @@ fn main() {
             if let Err(e) = add(file_path) {
                 eprintln!("Error adding file to the staging area: {}", e);
             }
+        }
+    }
+
+    // Handle the branch command
+    if let Some(branch_matches) = matches.subcommand_matches("branch") {
+        let new_branch_name = branch_matches.get_one::<String>("name");
+
+        if let Err(e) = branch(new_branch_name) {
+            eprintln!("Error when calling branch command: {}", e);
         }
     }
 
