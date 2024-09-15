@@ -20,7 +20,9 @@ fn init() -> io::Result<()> {
     fs::create_dir(".rgit")?;
     fs::create_dir(".rgit/objects")?;
     fs::create_dir_all(".rgit/refs/heads")?;
+    fs::create_dir_all(".rgit/refs/tags")?;
 
+    File::create(".rgit/config")?;
     File::create(".rgit/index")?;
     let mut head_file = File::create(".rgit/HEAD")?;
     head_file.write_all(b"ref: refs/heads/master")?;
@@ -385,7 +387,6 @@ fn log() -> io::Result<()> {
         println!("No commits found");
         return Ok(());
     }
-
     // Get current commit hash value
     let mut current_commit = fs::read_to_string(head_path)?.trim().to_string();
 
@@ -674,7 +675,7 @@ fn main() {
     // Handle the commit command
     if let Some(commit_matches) = matches.subcommand_matches("commit") {
         if let Some(message) = commit_matches.get_one::<String>("message") {
-            if let Err(e) = commit(&message) {
+            if let Err(e) = commit(message) {
                 eprintln!("Error committing file to the repository: {}", e);
             }
         }
