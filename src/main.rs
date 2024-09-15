@@ -1,4 +1,5 @@
 mod add;
+mod branch;
 mod checkout;
 mod commit;
 mod diff;
@@ -8,6 +9,7 @@ mod log;
 mod status;
 
 use add::add;
+use branch::{branch, delete_branch};
 use checkout::checkout;
 use clap::{Arg, Command};
 use commit::commit;
@@ -132,40 +134,6 @@ fn handle_config_command(action: &str, key: &str, value: Option<&str>) -> io::Re
     Ok(())
 }
 
-// TODO:: Handle branch delete command
-fn branch(new_branch: Option<&String>) -> io::Result<()> {
-    // Check heads dir exist (to store branches)
-    let heads_dir = Path::new(".rgit/refs/heads");
-    if !heads_dir.exists() {
-        println!("No branches available");
-        return Ok(());
-    }
-
-    if let Some(new_branch) = new_branch {
-        // Create new branch if new_branch have value
-        let master_file = heads_dir.join("master");
-        let new_branch_file = heads_dir.join(new_branch);
-
-        if new_branch_file.exists() {
-            println!("Branch {new_branch} already exist");
-            return Ok(());
-        } else {
-            fs::copy(master_file, new_branch_file)?;
-            println!("Branch {} created.", new_branch);
-        }
-    } else {
-        // Show branches that have in heads dir
-        println!("Branches:");
-        for entry in fs::read_dir(heads_dir)? {
-            let entry = entry?;
-            let branch_name = entry.file_name().into_string().unwrap();
-            println!("  {branch_name}");
-        }
-    }
-
-    Ok(())
-}
-
 fn tag(tag_name: &str) -> io::Result<()> {
     // TODO: Change heard code head_file value (currently master) to dynamic according to active branch
     let head_content = fs::read_to_string(".rgit/refs/heads/master")?;
@@ -239,7 +207,14 @@ fn main() {
             .subcommand(
                 Command::new("branch")
                     .about("List, create, or delete branches")
-                    .arg(Arg::new("name").required(false).help("Create new branch")),
+                    .arg(Arg::new("name").required(false).help("Create new branch"))
+                    .arg(
+                        Arg::new("delete_branch")
+                            .required(false)
+                            .short('d')
+                            .long("delete")
+                            .help("Delete the branch"),
+                    ),
             )
             .subcommand(
                 Command::new("tag")
@@ -328,10 +303,20 @@ fn main() {
 
     // Handle the branch command
     if let Some(branch_matches) = matches.subcommand_matches("branch") {
-        let new_branch_name = branch_matches.get_one::<String>("name");
+        let delete_branch_name = branch_matches.get_one::<String>("delete_branch");
 
-        if let Err(e) = branch(new_branch_name) {
-            eprintln!("Error when calling branch command: {}", e);
+        // Delete branch case
+        if let Some(branch_name) = delete_branch_name {
+            if let Err(e) = delete_branch(branch_name) {
+                eprintln!("Error when deleting the branch: {}", e);
+            }
+        } else {
+            // Create or list branch case
+            let new_branch_name = branch_matches.get_one::<String>("name");
+
+            if let Err(e) = branch(new_branch_name) {
+                eprintln!("Error when creating new branch: {}", e);
+            }
         }
     }
 
