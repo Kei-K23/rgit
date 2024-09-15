@@ -7,6 +7,8 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use sha1::{Digest, Sha1};
 
+use crate::helper::get_latest_staged_hash;
+
 // Git add command implementation
 // TODO: Handle adding same staged file
 pub fn add(file_path: &str) -> io::Result<()> {
@@ -21,6 +23,14 @@ pub fn add(file_path: &str) -> io::Result<()> {
     hasher.update(&contents);
     let hash = hasher.finalize();
     let hash_str = format!("{:x}", hash);
+
+    // Check the file is modified or make changes before adding to staging area
+    let current_latest_hash = get_latest_staged_hash(file_path)?.unwrap();
+
+    if current_latest_hash == hash_str {
+        println!("No changes detected to add to staging area");
+        return Ok(());
+    }
 
     // Create a blob folder under .rgit/objects
     let blob_dir_name = &hash_str[0..2];

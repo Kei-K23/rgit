@@ -7,7 +7,7 @@ use std::{
 use flate2::bufread::ZlibDecoder;
 
 pub fn log() -> io::Result<()> {
-    // TODO :: Need to check for current branch like (main or dev)
+    // TODO :: Need to check for current branch like (main or dev) or show all commit combine with all branches
     // Default to master branch
     let head_path = Path::new(".rgit/refs/heads/master");
 
