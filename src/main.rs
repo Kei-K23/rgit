@@ -1,5 +1,6 @@
 mod add;
 mod commit;
+mod diff;
 mod helper;
 mod init;
 mod log;
@@ -8,14 +9,13 @@ mod status;
 use add::add;
 use clap::{Arg, Command};
 use commit::commit;
-use helper::compute_file_hash;
+use diff::diff;
 use init::init;
 use log::log;
-use sha1::{Digest, Sha1};
 use status::status;
 use std::{
     fs::{self, File, OpenOptions},
-    io::{self, BufRead, BufReader, Read, Write},
+    io::{self, BufRead, BufReader, Write},
     path::Path,
 };
 
@@ -197,32 +197,6 @@ fn checkout(branch_or_commit: &str) -> io::Result<()> {
             ));
         }
     }
-    Ok(())
-}
-
-// TODO :: Need to check with latest commit for specific file
-fn diff() -> io::Result<()> {
-    let index_file_path = Path::new(".rgit/index");
-    let index_file = File::open(index_file_path)?;
-    let index_file_rdr = BufReader::new(index_file);
-
-    // Loop through the contents of index file
-    for line in index_file_rdr.lines() {
-        let line = line?;
-        let mut parts = line.split_whitespace();
-        // Get hash value and file path that store in the index file
-        let (hash_value, file_path) = (parts.next().unwrap(), parts.next().unwrap());
-
-        let current_file_path = Path::new(file_path);
-        // Get current file hash value
-        if let Ok(current_hash_value) = compute_file_hash(current_file_path) {
-            // If current file hash value string is not equal with hash value that store inside index file, then file change detected
-            if current_hash_value != hash_value {
-                println!("File '{}' has changed", file_path);
-            }
-        }
-    }
-
     Ok(())
 }
 
