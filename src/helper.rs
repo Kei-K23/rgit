@@ -1,8 +1,9 @@
 // All helper and reusable functions are stored
 
 use std::{
-    fs::{self, OpenOptions},
-    io::{self, Write},
+    fs::{self, File, OpenOptions},
+    io::{self, BufRead, BufReader, Read, Write},
+    path::Path,
 };
 
 use flate2::write::ZlibEncoder;
@@ -14,7 +15,7 @@ pub fn hash_and_store_obj(content_type: &str, content: &str) -> io::Result<Strin
     // Header information
     let header = format!("{} {}\0", content_type, content.len());
 
-    let mut obj = vec![];
+    let mut obj: Vec<u8> = vec![];
     obj.extend_from_slice(header.as_bytes());
     obj.extend_from_slice(content.as_bytes());
 
@@ -44,4 +45,72 @@ pub fn hash_and_store_obj(content_type: &str, content: &str) -> io::Result<Strin
     object_file.write_all(&compressed_obj)?;
 
     Ok(hash_value_str)
+}
+
+pub fn create_tree() -> io::Result<String> {
+    let index_path = ".rgit/index";
+    let mut tree_contents = vec![];
+
+    let index_file = File::open(index_path)?;
+    let index_rdr = BufReader::new(index_file);
+
+    for line in index_rdr.lines() {
+        let line = line?;
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() != 2 {
+            continue;
+        }
+        let (hash, file_path) = (parts[0], parts[1]);
+
+        // Example tree line: "100644 blob <hash>\t<file_name>"
+        tree_contents.push(format!("100644 blob {}\t{}", hash, file_path));
+    }
+
+    let tree_contents_str = tree_contents.join("\n");
+
+    let tree_hash = hash_and_store_obj("tree", &tree_contents_str)?;
+
+    Ok(tree_hash)
+}
+
+pub fn get_current_ref_branch() -> io::Result<Option<String>> {
+    let head_path = ".rgit/HEAD";
+    // Check if HEAD file exists
+    if Path::new(head_path).exists() {
+        // Read the current branch from HEAD file
+        let mut head_file = File::open(head_path)?;
+        let mut head_file_content = String::new();
+        head_file.read_to_string(&mut head_file_content)?;
+        // Extract the branch reference (assuming it's the second part)
+        let parts: Vec<&str> = head_file_content.split_whitespace().collect();
+
+        if parts.len() < 2 {
+            return Ok(None); // Invalid format in HEAD file
+        }
+
+        let branch_ref_file = parts[1].to_string();
+        Ok(Some(branch_ref_file))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn get_parent_commit() -> io::Result<Option<String>> {
+    if let Some(branch_ref_file) = get_current_ref_branch()? {
+        let branch_ref_path = format!(".rgit/{}", branch_ref_file);
+
+        // If there is not commit yet! return with None
+        if !Path::new(&branch_ref_path).exists() {
+            return Ok(None);
+        }
+
+        // Read the commit hash from the branch reference file
+        let mut ref_file = File::open(branch_ref_path)?;
+        let mut previous_commit = String::new();
+        ref_file.read_to_string(&mut previous_commit)?;
+
+        Ok(Some(previous_commit.trim().to_string()))
+    } else {
+        Ok(None)
+    }
 }

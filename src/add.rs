@@ -8,6 +8,7 @@ use flate2::Compression;
 use sha1::{Digest, Sha1};
 
 // Git add command implementation
+// TODO: Handle adding same staged file
 pub fn add(file_path: &str) -> io::Result<()> {
     // Open the file to add (e.g. git add main.rs)
     let mut file = File::open(file_path)?;

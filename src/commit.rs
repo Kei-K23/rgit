@@ -1,90 +1,60 @@
 use std::{
-    fs::{self, File},
-    io::{self, BufRead, BufReader, Write},
+    fs::File,
+    io::{self, Write},
     path::Path,
-    time::SystemTime,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
-use sha1::{Digest, Sha1};
+use crate::helper::{create_tree, get_current_ref_branch, get_parent_commit, hash_and_store_obj};
 
-// TODO:: Add parent commit hash value to track parent commit
 pub fn commit(message: &str) -> io::Result<()> {
-    // Read index file to get hash values and files names that reach to staging area
-    let index_path = Path::new(".rgit/index");
-    // Check index file exist
-    if !index_path.exists() {
-        println!("No file in staging area to commit");
+    let index_path = ".rgit/index";
+    // Check changes file to commit
+    if !Path::new(index_path).exists() {
+        println!("No changes to commit (no staged files)");
         return Ok(());
     }
-    let index_file = File::open(index_path)?;
-    let index_file_rdr = BufReader::new(index_file); // Read buffer for index file
-    let mut files: Vec<(String, String)> = vec![]; // Vec to store tuple of index file hash value and file path
 
-    // Loop through index file content
-    for line in index_file_rdr.lines() {
-        if let Ok(line) = line {
-            // Split in whitespace (e.g HASH_VALUE FILE, HASH_VALUE will be hash_value and FILE will be file_path)
-            let mut parts = line.split_whitespace();
-            if let (Some(hash_value), Some(file_path)) = (parts.next(), parts.next()) {
-                // Push those value into tuple format
-                files.push((hash_value.to_string(), file_path.to_string()));
-            }
-        }
-    }
+    // Create the tree object and get back the tree hash value
+    let tree_hash = create_tree()?;
 
-    // Create tree object
-    let mut tree_content = String::new();
+    // Get the current time
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+        .as_secs();
 
-    // Loop through to add hash value and filepath to the tree content
-    for (hash_value, file_path) in &files {
-        tree_content.push_str(&format!("blob {} {}\n", hash_value, file_path));
-    }
+    // Get the parent commit (if any)
+    let parent_commit = get_parent_commit()?;
 
-    // Hash tree object
-    let mut tree_hasher = Sha1::new();
-    tree_hasher.update(tree_content.as_bytes());
-    let tree_hash_str = format!("{:x}", tree_hasher.finalize());
-
-    // Write tree object to .rgit/objects/
-    let tree_dir_name = &tree_hash_str[0..2];
-    let tree_file_name = &tree_hash_str[2..];
-    fs::create_dir_all(format!(".rgit/objects/{}", tree_dir_name))?;
-    let mut tree_obj = File::create(format!(
-        ".rgit/objects/{}/{}",
-        tree_dir_name, tree_file_name
-    ))?;
-    tree_obj.write_all(tree_content.as_bytes())?;
-
-    // Create commit object
-    let author = "Kei-K23 keiksl2301@gmail.com";
-    let timestamp = SystemTime::now();
-    // Commit object in string format
-    let commit_content = format!(
-        "tree {}\n\
-        author {} {:?}\n\
-        committer {} {:?}\n\n\
-        {}\n",
-        tree_hash_str, author, timestamp, author, timestamp, message
+    // Create the commit object contents
+    let mut commit_contents = format!(
+        "tree {}\nauthor {} <{}> {} +0000\ncommitter {} <{}> {} +0000\n\n{}\n",
+        tree_hash,
+        "default",
+        "default@email.com",
+        now,
+        "default",
+        "default@email.com",
+        now,
+        message
     );
 
-    let mut commit_hasher = Sha1::new();
-    commit_hasher.update(commit_content.as_bytes());
-    let commit_hash_str = format!("{:x}", commit_hasher.finalize());
+    // If parent commit exist, then add to commit content
+    if let Some(parent) = parent_commit {
+        commit_contents = format!("parent {}\n{}", parent, commit_contents);
+    }
 
-    // Write commit hash tree to .rgit/objects
-    let commit_dir_name = &commit_hash_str[0..2];
-    let commit_file_name = &commit_hash_str[2..];
-    fs::create_dir_all(format!(".rgit/objects/{}", commit_dir_name))?;
-    let mut commit_obj = File::create(format!(
-        ".rgit/objects/{}/{}",
-        commit_dir_name, commit_file_name
-    ))?;
-    commit_obj.write_all(commit_content.as_bytes())?;
+    let commit_hash = hash_and_store_obj("commit", &commit_contents)?;
 
-    // Update head file in refs heads file
-    let mut head_file = File::create(".rgit/refs/heads/master")?;
-    head_file.write_all(commit_hash_str.as_bytes())?;
+    // Create the reference file or update to link with current commit
+    let branch_ref = get_current_ref_branch()?.unwrap();
+    let branch_ref_path = format!(".rgit/{}", branch_ref);
 
-    println!("Committed with message {}", message);
+    let mut branch_ref_file = File::create(&branch_ref_path)?;
+
+    branch_ref_file.write_all(&commit_hash.as_bytes())?;
+
+    println!("Committed with: {}", commit_hash);
     Ok(())
 }
