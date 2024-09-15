@@ -208,14 +208,14 @@ fn main() {
         if let Some(set_matches) = config_matches.subcommand_matches("set") {
             let key = set_matches.get_one::<String>("key").unwrap();
             let value = set_matches.get_one::<String>("value").unwrap();
-            if let Err(err) = handle_config_command("set", key, Some(value)) {
+            if let Err(err) = handle_config_command("set", key, "[user]", Some(value)) {
                 eprintln!("Error setting configuration: {}", err);
             }
         }
 
         if let Some(get_matches) = config_matches.subcommand_matches("get") {
             let key = get_matches.get_one::<String>("key").unwrap();
-            if let Err(err) = handle_config_command("get", key, None) {
+            if let Err(err) = handle_config_command("get", key, "[user]", None) {
                 eprintln!("Error getting configuration: {}", err);
             }
         }

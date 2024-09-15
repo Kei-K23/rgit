@@ -5,7 +5,10 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::helper::{create_tree, get_current_ref_branch, get_parent_commit, hash_and_store_obj};
+use crate::{
+    config::get_config,
+    helper::{create_tree, get_current_ref_branch, get_parent_commit, hash_and_store_obj},
+};
 
 pub fn commit(message: &str) -> io::Result<()> {
     let index_path = ".rgit/index";
@@ -28,10 +31,14 @@ pub fn commit(message: &str) -> io::Result<()> {
     // Get the parent commit (if any)
     let parent_commit = get_parent_commit()?;
 
+    // Get author name and email form configuration
+    let author_name = get_config("[user]", "name")?.unwrap_or("default".to_string());
+    let author_email = get_config("[user]", "email")?.unwrap_or("default@email.com".to_string());
+
     // Create the commit object contents
     let mut commit_contents = format!(
         "Tree: {}\nAuthor: {} <{}> {} +0000\nMessage: {}",
-        tree_hash, "default", "default@email.com", now, message
+        tree_hash, author_name, author_email, now, message
     );
 
     // If parent commit exist, then add to commit content
