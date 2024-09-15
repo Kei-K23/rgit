@@ -58,7 +58,6 @@ pub fn delete_tag(tag_name: &str) -> io::Result<()> {
 
     let delete_tag_file = tag_folder_path.join(tag_name);
 
-    // TODO :: Do I need check the current active branch is our want to delete branch
     if !delete_tag_file.exists() {
         println!("Tag '{tag_name}' not found");
         return Ok(());

@@ -15,7 +15,7 @@ use branch::{branch, delete_branch};
 use checkout::checkout;
 use clap::{Arg, Command};
 use commit::commit;
-use config::handle_config_command;
+use config::{add_remote, handle_config_command, remove_remote};
 use diff::diff;
 use init::init;
 use log::log;
@@ -103,6 +103,25 @@ fn main() {
                             .arg(Arg::new("key").required(true).help(
                                 "The configuration key to retrieve (e.g., 'name' or 'email')",
                             )),
+                    ),
+            )
+            .subcommand(
+                Command::new("remote")
+                    .about("Configuration for remote config")
+                    .subcommand(
+                        Command::new("add")
+                            .about("Add remote configuration")
+                            .arg(Arg::new("name").required(true).help("Remote config name"))
+                            .arg(Arg::new("url").required(true).help("Remote config url")),
+                    )
+                    .subcommand(
+                        Command::new("remove")
+                            .about("Remove remote configuration of the repository")
+                            .arg(
+                                Arg::new("name")
+                                    .required(true)
+                                    .help("Remote config name to remove')"),
+                            ),
                     ),
             )
             .get_matches();
@@ -217,6 +236,24 @@ fn main() {
             let key = get_matches.get_one::<String>("key").unwrap();
             if let Err(err) = handle_config_command("get", key, "[user]", None) {
                 eprintln!("Error getting configuration: {}", err);
+            }
+        }
+    }
+
+    // Handle the remote config
+    if let Some(remote_matches) = matches.subcommand_matches("remote") {
+        if let Some(add_matches) = remote_matches.subcommand_matches("add") {
+            let name = add_matches.get_one::<String>("name").unwrap();
+            let url = add_matches.get_one::<String>("url").unwrap();
+            if let Err(err) = add_remote(&name, &url) {
+                eprintln!("Error adding remote configuration: {}", err);
+            }
+        }
+
+        if let Some(remove_matches) = remote_matches.subcommand_matches("remove") {
+            let name = remove_matches.get_one::<String>("name").unwrap();
+            if let Err(err) = remove_remote(&name) {
+                eprintln!("Error removing remote configuration: {}", err);
             }
         }
     }

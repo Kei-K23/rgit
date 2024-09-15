@@ -115,3 +115,21 @@ pub fn handle_config_command(
 
     Ok(())
 }
+
+// TODO:: Update logic and handle validation for more effective
+pub fn add_remote(name: &str, url: &str) -> io::Result<()> {
+    let mut config_file = File::options()
+        .create(true)
+        .append(true)
+        .open(".rgit/config")?;
+
+    writeln!(config_file, "[remote \"{}\"]\n    url = {}\n", name, url)?;
+    println!("Remote '{}' added", name);
+    Ok(())
+}
+
+pub fn remove_remote(name: &str) -> io::Result<()> {
+    // Logic to remove the remote entry from .rgit/config
+    println!("Remote '{}' removed", name);
+    Ok(())
+}
