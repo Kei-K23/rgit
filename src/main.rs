@@ -1,4 +1,6 @@
 use clap::{Arg, Command};
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
 use sha1::{Digest, Sha1};
 use std::{
     fs::{self, File, OpenOptions},
@@ -12,7 +14,7 @@ fn init() -> io::Result<()> {
     // Check if the .rgit directory already exists
     let git_file_dir = Path::new(".rgit");
     if git_file_dir.exists() {
-        println!("Rgit repository already initialized.");
+        println!(".rgit repository already initialized.");
         return Ok(());
     }
 
@@ -52,8 +54,14 @@ fn add(file_path: &str) -> io::Result<()> {
         ".rgit/objects/{}/{}",
         blob_dir_name, blob_file_name
     ))?;
+
+    // Compress the blob using the DEFLATE algorithm
+    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(&contents)?;
+    let compressed_blob = encoder.finish()?;
+
     // Write the content to the blob file
-    blob_file.write_all(&contents)?;
+    blob_file.write_all(&compressed_blob)?;
 
     // Append the hash and file path to the index file
     let mut index_file = File::options().append(true).open(".rgit/index")?;
