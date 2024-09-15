@@ -113,3 +113,41 @@ pub fn get_parent_commit() -> io::Result<Option<String>> {
         Ok(None)
     }
 }
+
+// Helper function to compute file hashing (SHA-1)
+pub fn compute_file_hash(file_path: &Path) -> io::Result<String> {
+    let mut file = File::open(file_path)?;
+    let mut hasher = Sha1::new();
+    let mut buffer = vec![0; 1024];
+
+    loop {
+        let bytes_read = file.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+// Function to get latest staged file hash value
+pub fn get_latest_staged_hash(file_name: &str) -> io::Result<Option<String>> {
+    let index_path = ".rgit/index";
+
+    let index_file = File::open(index_path)?;
+    let index_rdr = BufReader::new(index_file);
+
+    let mut latest_hash_value: Option<String> = None;
+
+    for line in index_rdr.lines() {
+        let line = line?;
+        let parts: Vec<&str> = line.split_whitespace().collect();
+
+        if parts.len() == 2 && parts[1] == file_name {
+            latest_hash_value = Some(parts[0].to_string());
+        }
+    }
+
+    Ok(latest_hash_value)
+}
