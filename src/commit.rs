@@ -19,6 +19,7 @@ pub fn commit(message: &str) -> io::Result<()> {
     let tree_hash = create_tree()?;
 
     // Get the current time
+    // TODO :: Change to human readable date
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
@@ -29,20 +30,13 @@ pub fn commit(message: &str) -> io::Result<()> {
 
     // Create the commit object contents
     let mut commit_contents = format!(
-        "tree {}\nauthor {} <{}> {} +0000\ncommitter {} <{}> {} +0000\n\n{}\n",
-        tree_hash,
-        "default",
-        "default@email.com",
-        now,
-        "default",
-        "default@email.com",
-        now,
-        message
+        "Tree: {}\nAuthor: {} <{}> {} +0000\nMessage: {}",
+        tree_hash, "default", "default@email.com", now, message
     );
 
     // If parent commit exist, then add to commit content
     if let Some(parent) = parent_commit {
-        commit_contents = format!("parent {}\n{}", parent, commit_contents);
+        commit_contents = format!("Parent: {}\n{}", parent, commit_contents);
     }
 
     let commit_hash = hash_and_store_obj("commit", &commit_contents)?;

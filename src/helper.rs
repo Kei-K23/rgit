@@ -10,7 +10,6 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use sha1::{Digest, Sha1};
 
-// Compute hash, compress, store the object and return hash value
 pub fn hash_and_store_obj(content_type: &str, content: &str) -> io::Result<String> {
     // Header information
     let header = format!("{} {}\0", content_type, content.len());
@@ -24,16 +23,16 @@ pub fn hash_and_store_obj(content_type: &str, content: &str) -> io::Result<Strin
     hasher.update(&obj);
     let hash_value_str = format!("{:x}", hasher.finalize());
 
-    // Compress the object using the DEFLATE
+    // Compress the object using the DEFLATE (Git uses zlib compression)
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(&obj)?;
-    let compressed_obj = encoder.finish()?;
+    encoder.write_all(&obj)?; // Compress the header + content
+    let compressed_obj = encoder.finish()?; // Get the compressed bytes
 
     // Create object file and folder
     let object_dir = format!(".rgit/objects/{}", &hash_value_str[0..2]);
     let object_path = format!("{}/{}", object_dir, &hash_value_str[2..]);
 
-    fs::create_dir_all(object_dir)?; // Make sure to create object dir
+    fs::create_dir_all(&object_dir)?; // Make sure to create object dir
 
     // Create and write object file
     let mut object_file = OpenOptions::new()
